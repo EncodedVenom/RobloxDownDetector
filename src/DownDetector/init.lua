@@ -37,6 +37,7 @@ local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local Signal = require(Knit.Util.Signal)
 local Timer = require(Knit.Util.Timer)
 local EnumList = require(Knit.Util.EnumList)
+local Promise = require(Knit.Util.Promise)
 
 local DowntimeGetter = require(script:WaitForChild("DowntimeGetter")) -- Just in case you call this on the client. Don't know why.
 
@@ -124,19 +125,19 @@ end
 
 DownDetector.StringifyEnum = ConvertEnumToString
 
-local done = 0
+local promises = {}
 for _, name in pairs(API_LIST) do
     DownDetector.Signals[name] = Signal.new()
     DownDetector.Signals[name]:Connect(function(newValue)
         DownDetector.Values[name] = newValue
     end)
-    task.spawn(function()
+    table.insert(promises, Promise.new(function(resolve, reject, onCancel)
         DownDetector.Values[name] = ConvertStringToEnum(DowntimeGetter.GetStatusForSlug(name)) -- May take a bit.
-        done += 1
-    end)
+        resolve()
+    end))
 end
 
-repeat task.wait(1) until done == #API_LIST
+Promise.all(promises):Await()
 
 local baseForStringResponse = "\tAPI \"%s\" (%s): %s" -- API "roblox-site" (Roblox): UP
 local listOfResponses = {}
